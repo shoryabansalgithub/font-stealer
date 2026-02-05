@@ -17,6 +17,27 @@ const manrope = Manrope({
 export const metadata: Metadata = {
   title: "Font Stealer - Extract Fonts from Any Website",
   description: "Discover and download fonts from any website. Just enter a URL and get instant access to all the fonts used.",
+  openGraph: {
+    title: "Font Stealer",
+    description: "Extract and download fonts from any website instantly.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Font Stealer OG Image",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Font Stealer",
+    description: "Extract and download fonts from any website instantly.",
+    images: ["/og-image.png"],
+  },
+  icons: {
+    icon: "/logo.png",
+  },
 };
 
 export default function RootLayout({
