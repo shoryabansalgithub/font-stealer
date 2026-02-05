@@ -15,7 +15,9 @@ export default function FontCard({ font, index }: FontCardProps) {
 
     // Only proxy external URLs, keep data URLs as is
     const isDataUrl = font.url.startsWith('data:');
-    const displayUrl = isDataUrl ? font.url : `/api/font?url=${encodeURIComponent(font.url)}`;
+    const displayUrl = isDataUrl
+        ? font.url
+        : `/api/font?url=${encodeURIComponent(font.url)}&referer=${encodeURIComponent(font.referer || '')}`;
 
     useEffect(() => {
         const fontId = `font-preview-${index}`;

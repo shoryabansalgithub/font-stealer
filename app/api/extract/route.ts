@@ -7,6 +7,7 @@ interface FontInfo {
   url: string;
   weight?: string;
   style?: string;
+  referer?: string;
 }
 
 // More robust regex to extract @font-face blocks
@@ -45,6 +46,37 @@ function getFormatFromUrl(url: string): string {
   return formatMap[ext || ''] || 'Unknown';
 }
 
+const fontSourceRegex = /url\s*\(\s*['"]?([^'")]+)['"]?\s*\)\s*(?:format\s*\(\s*['"]?([^'")]+)['"]?\s*\))?/gi;
+const formatPreference = ['WOFF2', 'WOFF', 'OPENTYPE', 'TRUETYPE', 'OTF', 'TTF', 'EOT', 'SVG'];
+
+function normalizeFamilyName(family: string): string {
+  return family.replace(/["']/g, '').trim();
+}
+
+function pickBestSource(src: string, baseUrl: string): { url: string; format: string } | null {
+  const candidates: { url: string; format: string }[] = [];
+  let match;
+  const regexCopy = new RegExp(fontSourceRegex.source, 'gi');
+
+  while ((match = regexCopy.exec(src)) !== null) {
+    const rawUrl = match[1]?.trim();
+    if (!rawUrl || rawUrl.startsWith('local(')) continue;
+    const resolvedUrl = resolveUrl(baseUrl, rawUrl);
+    const rawFormat = match[2]?.replace(/["']/g, '').trim().toUpperCase() || getFormatFromUrl(rawUrl);
+    candidates.push({ url: resolvedUrl, format: rawFormat });
+  }
+
+  if (candidates.length === 0) return null;
+
+  candidates.sort((a, b) => {
+    const aIndex = formatPreference.indexOf(a.format.toUpperCase());
+    const bIndex = formatPreference.indexOf(b.format.toUpperCase());
+    return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
+  });
+
+  return candidates[0];
+}
+
 function extractFontsFromCSS(css: string, baseUrl: string): { fonts: FontInfo[], imports: string[] } {
   const fonts: FontInfo[] = [];
   const imports: string[] = [];
@@ -68,31 +100,24 @@ function extractFontsFromCSS(css: string, baseUrl: string): { fonts: FontInfo[],
 
     if (!familyMatch || !srcMatch) continue;
 
-    const family = familyMatch[1].replace(/['"]/g, '').trim();
+    const family = normalizeFamilyName(familyMatch[1]);
     const srcValue = srcMatch[1];
+    const bestSource = pickBestSource(srcValue, baseUrl);
+    if (!bestSource) continue;
 
-    let urlMatch;
-    const urlRegexCopy = new RegExp(urlRegex.source, 'gi');
-    while ((urlMatch = urlRegexCopy.exec(srcValue)) !== null) {
-      const rawUrl = urlMatch[1].replace(/['"]/g, '').trim();
-      const resolvedUrl = resolveUrl(baseUrl, rawUrl);
+    const fileName = bestSource.url.startsWith('data:')
+      ? 'embedded-font'
+      : bestSource.url.split('/').pop()?.split('?')[0] || '';
+    const name = fileName || `${family}-${bestSource.format}`;
 
-      const afterUrl = srcValue.slice(urlMatch.index + urlMatch[0].length);
-      const formatMatch = afterUrl.match(formatRegex);
-      const format = formatMatch ? formatMatch[1].replace(/['"]/g, '').toUpperCase() : getFormatFromUrl(rawUrl);
-
-      const fileName = rawUrl.startsWith('data:') ? 'embedded-font' : rawUrl.split('/').pop()?.split('?')[0] || '';
-      const name = fileName || `${family}-${format}`;
-
-      fonts.push({
-        name,
-        family,
-        format,
-        url: resolvedUrl,
-        weight: weightMatch ? weightMatch[1].trim() : '400',
-        style: styleMatch ? styleMatch[1].trim() : 'normal'
-      });
-    }
+    fonts.push({
+      name,
+      family,
+      format: bestSource.format,
+      url: bestSource.url,
+      weight: weightMatch ? weightMatch[1].trim() : '400',
+      style: styleMatch ? styleMatch[1].trim() : 'normal'
+    });
   }
 
   return { fonts, imports };
@@ -121,6 +146,67 @@ async function fetchAndParseCSS(url: string, depth: number = 0, fetchedUrls: Set
   }
 }
 
+async function extractFontsWithPlaywright(targetUrl: string): Promise<FontInfo[]> {
+  let browser: any;
+  try {
+    const { chromium } = await import('playwright');
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+    });
+
+    await page.goto(targetUrl, { waitUntil: 'networkidle', timeout: 45000 });
+    await page.waitForTimeout(500);
+    await page.evaluate(() => (document.fonts ? document.fonts.ready : Promise.resolve()));
+
+    const fontFaces = await page.evaluate(() => {
+      return Array.from(document.fonts).map((fontFace) => ({
+        family: fontFace.family,
+        style: fontFace.style,
+        weight: fontFace.weight,
+        status: fontFace.status,
+        src: (fontFace as unknown as { src?: string }).src || ''
+      }));
+    });
+
+    const fonts: FontInfo[] = [];
+    for (const face of fontFaces) {
+      if (face.status !== 'loaded' && face.status !== 'loading') continue;
+      if (!face.src) continue;
+
+      const bestSource = pickBestSource(face.src, targetUrl);
+      if (!bestSource) continue;
+
+      const family = normalizeFamilyName(face.family || 'Unknown Font');
+      const fileName = bestSource.url.startsWith('data:')
+        ? 'embedded-font'
+        : bestSource.url.split('/').pop()?.split('?')[0] || '';
+
+      fonts.push({
+        name: fileName || `${family}-${bestSource.format}`,
+        family,
+        format: bestSource.format,
+        url: bestSource.url,
+        weight: face.weight || '400',
+        style: face.style || 'normal',
+        referer: targetUrl
+      });
+    }
+
+    return fonts;
+  } catch {
+    return [];
+  } finally {
+    if (browser) {
+      try {
+        await browser.close();
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { url } = await request.json();
@@ -132,6 +218,8 @@ export async function POST(request: NextRequest) {
     } catch {
       return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
     }
+
+    let realFonts = await extractFontsWithPlaywright(targetUrl.href);
 
     const response = await fetch(targetUrl.href, {
       headers: {
@@ -148,33 +236,59 @@ export async function POST(request: NextRequest) {
     const allFonts: FontInfo[] = [];
     const fetchedCssUrls = new Set<string>();
 
-    // Inline styles
+    // 1. Inline styles
     const inlineStyleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi;
     let styleMatch;
     while ((styleMatch = inlineStyleRegex.exec(html)) !== null) {
       const { fonts, imports } = extractFontsFromCSS(styleMatch[1], targetUrl.href);
-      allFonts.push(...fonts);
-      // Follow imports from inline styles
+      // Attach referer to inline fonts
+      allFonts.push(...fonts.map(f => ({ ...f, referer: targetUrl.href })));
+
       const importFonts = await Promise.all(imports.map(i => fetchAndParseCSS(i, 0, fetchedCssUrls)));
-      allFonts.push(...importFonts.flat());
+      const importFontsWithReferer = importFonts.flat().map(f => ({ ...f, referer: targetUrl.href }));
+      allFonts.push(...importFontsWithReferer);
     }
 
-    // Linked stylesheets
-    const linkRegex = /<link[^>]+rel=["']?stylesheet["']?[^>]*>/gi;
-    const hrefRegex = /href=["']([^"']+)["']/i;
+    // 2. Linked stylesheets and Preloaded fonts
+    const linkTagRegex = /<link[^>]+>/gi;
+    const relRegex = /rel=["']?([^"'\s]+)["']?/i;
+    const hrefRegex = /href=["']?([^"'\s>]+)["']?/i;
+    const asRegex = /as=["']?([^"'\s]+)["']?/i;
+
     let linkMatch;
     const initialCssUrls: string[] = [];
 
-    while ((linkMatch = linkRegex.exec(html)) !== null) {
-      const hrefMatch = linkMatch[0].match(hrefRegex);
-      if (hrefMatch) {
-        initialCssUrls.push(resolveUrl(targetUrl.href, hrefMatch[1]));
+    while ((linkMatch = linkTagRegex.exec(html)) !== null) {
+      const tag = linkMatch[0];
+      const rel = tag.match(relRegex)?.[1].toLowerCase() || '';
+      const href = tag.match(hrefRegex)?.[1] || '';
+      const as = tag.match(asRegex)?.[1]?.toLowerCase() || '';
+
+      if (!href) continue;
+      const resolvedUrl = resolveUrl(targetUrl.href, href);
+
+      if (rel === 'stylesheet' || (rel === 'preload' && as === 'style')) {
+        initialCssUrls.push(resolvedUrl);
+      } else if ((rel === 'preload' || rel === 'prefetch') && as === 'font') {
+        const format = getFormatFromUrl(resolvedUrl);
+        const name = resolvedUrl.split('/').pop()?.split('?')[0] || 'preloaded-font';
+        allFonts.push({
+          name: name,
+          family: name.split('.')[0] || 'Unknown Font',
+          format,
+          url: resolvedUrl,
+          weight: '400',
+          style: 'normal',
+          referer: targetUrl.href
+        });
       }
     }
 
-    // Process all linked CSS files (recursively handling @import)
+    // 3. Process all linked CSS files
     const linkedFonts = await Promise.all(initialCssUrls.map(u => fetchAndParseCSS(u, 0, fetchedCssUrls)));
-    allFonts.push(...linkedFonts.flat());
+    // Attach referer to linked fonts
+    const fontsWithReferer = linkedFonts.flat().map(font => ({ ...font, referer: targetUrl.href }));
+    allFonts.push(...fontsWithReferer);
 
     // Deduplicate fonts by URL (keeping the first occurrence)
     const uniqueFontsMap = new Map<string, FontInfo>();
@@ -185,9 +299,19 @@ export async function POST(request: NextRequest) {
     }
     const uniqueFonts = Array.from(uniqueFontsMap.values());
 
+    const mergedFonts = realFonts.length > 0 ? [...realFonts, ...uniqueFonts] : uniqueFonts;
+    const mergedUnique = new Map<string, FontInfo>();
+    for (const font of mergedFonts) {
+      if (!mergedUnique.has(font.url)) {
+        mergedUnique.set(font.url, font);
+      }
+    }
+
+    const mergedValues = Array.from(mergedUnique.values());
+
     return NextResponse.json({
-      fonts: uniqueFonts,
-      totalFound: uniqueFonts.length,
+      fonts: mergedValues,
+      totalFound: mergedValues.length,
       sourceUrl: targetUrl.href
     });
 

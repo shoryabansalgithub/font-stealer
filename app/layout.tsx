@@ -40,11 +40,16 @@ export const metadata: Metadata = {
   },
 };
 
-return (
-  <html lang="en" suppressHydrationWarning>
-    <body className={`${inter.variable} ${manrope.variable} font-sans antialiased`}>
-      {children}
-    </body>
-  </html>
-);
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.variable} ${manrope.variable} font-sans antialiased`}>
+        {children}
+      </body>
+    </html>
+  );
 }

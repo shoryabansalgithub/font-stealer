@@ -45,19 +45,10 @@ export default function Home() {
         return aDiff - bDiff;
       });
 
-      // Deduplicate by family name only
-      const seenFamilies = new Set<string>();
-      const uniqueFonts = sortedFonts.filter((font: FontInfo) => {
-        const key = font.family.toLowerCase().trim();
-        if (seenFamilies.has(key)) return false;
-        seenFamilies.add(key);
-        return true;
-      });
+      sortedFonts.sort((a: FontInfo, b: FontInfo) => a.family.localeCompare(b.family));
+      setFonts(sortedFonts);
 
-      uniqueFonts.sort((a: FontInfo, b: FontInfo) => a.family.localeCompare(b.family));
-      setFonts(uniqueFonts);
-
-      if (uniqueFonts.length === 0) {
+      if (sortedFonts.length === 0) {
         setError('No fonts found on this website');
       }
     } catch (err) {

@@ -5,4 +5,5 @@ export interface FontInfo {
     url: string;
     weight?: string;
     style?: string;
+    referer?: string;
 }
