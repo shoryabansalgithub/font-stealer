@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import HeroSection from './components/HeroSection';
 import SearchInput from './components/SearchInput';
 import FontGrid from './components/FontGrid';

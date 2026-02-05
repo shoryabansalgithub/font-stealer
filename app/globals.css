@@ -9,6 +9,15 @@
   font-display: swap;
 }
 
+/* Custom Heading Font */
+@font-face {
+  font-family: 'CustomHeading';
+  src: url('/008d67fd73a4c01b.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #0a0a0a;

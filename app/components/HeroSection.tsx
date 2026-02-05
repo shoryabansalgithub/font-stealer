@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from  'motion/react';
 
 const fonts = [
+    { name: 'Heading', family: 'CustomHeading, sans-serif' },
     { name: 'Inter', family: 'var(--font-inter), sans-serif' },
     { name: 'Geist', family: 'system-ui, sans-serif' },
     { name: 'Manrope', family: 'var(--font-manrope), sans-serif' },
