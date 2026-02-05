@@ -63,7 +63,6 @@ export default function Home() {
       {/* Background Pattern */}
       <div className="fixed inset-0 h-full w-full bg-white pointer-events-none">
         <div className="absolute h-full w-full bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]"></div>
-        <div className="absolute left-0 right-0 top-0 m-auto h-[310px] w-[310px] rounded-full bg-fuchsia-400 opacity-20 blur-[100px]"></div>
       </div>
 
       {/* Content */}
