@@ -9,8 +9,10 @@ interface FontInfo {
   style?: string;
 }
 
-// Regex to extract @font-face blocks
-const fontFaceRegex = /@font-face\s*\{[^}]+\}/gi;
+// More robust regex to extract @font-face blocks
+const fontFaceRegex = /@font-face\s*\{([\s\S]*?)\}/gi;
+// Regex to extract @import rules
+const importRegex = /@import\s+(?:url\(['"]?|['"])([^'")]+\.css[^'")]*)(?:['"]?\)['"]?|['"])\s*[^;]*;/gi;
 
 // Regex to extract properties from @font-face
 const fontFamilyRegex = /font-family\s*:\s*['"]?([^'";]+)['"]?/i;
@@ -22,10 +24,7 @@ const styleRegex = /font-style\s*:\s*([^;]+)/i;
 
 function resolveUrl(base: string, relative: string): string {
   try {
-    // Handle data URLs
-    if (relative.startsWith('data:')) {
-      return relative;
-    }
+    if (relative.startsWith('data:')) return relative;
     return new URL(relative, base).href;
   } catch {
     return relative;
@@ -33,7 +32,8 @@ function resolveUrl(base: string, relative: string): string {
 }
 
 function getFormatFromUrl(url: string): string {
-  const ext = url.split('?')[0].split('.').pop()?.toLowerCase();
+  const cleanUrl = url.split('?')[0].split('#')[0];
+  const ext = cleanUrl.split('.').pop()?.toLowerCase();
   const formatMap: Record<string, string> = {
     'woff2': 'WOFF2',
     'woff': 'WOFF',
@@ -45,11 +45,22 @@ function getFormatFromUrl(url: string): string {
   return formatMap[ext || ''] || 'Unknown';
 }
 
-function extractFontsFromCSS(css: string, baseUrl: string): FontInfo[] {
+function extractFontsFromCSS(css: string, baseUrl: string): { fonts: FontInfo[], imports: string[] } {
   const fonts: FontInfo[] = [];
-  const fontFaceBlocks = css.match(fontFaceRegex) || [];
+  const imports: string[] = [];
 
-  for (const block of fontFaceBlocks) {
+  // Extract @import rules
+  let importMatch;
+  const importRegexCopy = new RegExp(importRegex.source, 'gi');
+  while ((importMatch = importRegexCopy.exec(css)) !== null) {
+    imports.push(resolveUrl(baseUrl, importMatch[1]));
+  }
+
+  // Extract @font-face blocks
+  let blockMatch;
+  const fontFaceRegexCopy = new RegExp(fontFaceRegex.source, 'gi');
+  while ((blockMatch = fontFaceRegexCopy.exec(css)) !== null) {
+    const block = blockMatch[1];
     const familyMatch = block.match(fontFamilyRegex);
     const srcMatch = block.match(srcRegex);
     const weightMatch = block.match(weightRegex);
@@ -57,29 +68,20 @@ function extractFontsFromCSS(css: string, baseUrl: string): FontInfo[] {
 
     if (!familyMatch || !srcMatch) continue;
 
-    const family = familyMatch[1].trim();
+    const family = familyMatch[1].replace(/['"]/g, '').trim();
     const srcValue = srcMatch[1];
 
-    // Extract all URLs from src
     let urlMatch;
     const urlRegexCopy = new RegExp(urlRegex.source, 'gi');
-    
     while ((urlMatch = urlRegexCopy.exec(srcValue)) !== null) {
-      const rawUrl = urlMatch[1];
-      
-      // Skip data URLs for now (too large)
-      if (rawUrl.startsWith('data:')) continue;
-
+      const rawUrl = urlMatch[1].replace(/['"]/g, '').trim();
       const resolvedUrl = resolveUrl(baseUrl, rawUrl);
-      
-      // Get format from format() or from URL extension
+
       const afterUrl = srcValue.slice(urlMatch.index + urlMatch[0].length);
       const formatMatch = afterUrl.match(formatRegex);
-      const format = formatMatch ? formatMatch[1].toUpperCase() : getFormatFromUrl(rawUrl);
+      const format = formatMatch ? formatMatch[1].replace(/['"]/g, '').toUpperCase() : getFormatFromUrl(rawUrl);
 
-      // Generate a readable name
-      const urlParts = rawUrl.split('/');
-      const fileName = urlParts[urlParts.length - 1].split('?')[0];
+      const fileName = rawUrl.startsWith('data:') ? 'embedded-font' : rawUrl.split('/').pop()?.split('?')[0] || '';
       const name = fileName || `${family}-${format}`;
 
       fonts.push({
@@ -93,32 +95,37 @@ function extractFontsFromCSS(css: string, baseUrl: string): FontInfo[] {
     }
   }
 
-  return fonts;
+  return { fonts, imports };
 }
 
-async function fetchCSS(url: string): Promise<string> {
+const MAX_IMPORT_DEPTH = 3;
+
+async function fetchAndParseCSS(url: string, depth: number = 0, fetchedUrls: Set<string> = new Set()): Promise<FontInfo[]> {
+  if (depth > MAX_IMPORT_DEPTH || fetchedUrls.has(url)) return [];
+  fetchedUrls.add(url);
+
   try {
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
       }
     });
-    if (!response.ok) return '';
-    return await response.text();
+    if (!response.ok) return [];
+    const css = await response.text();
+    const { fonts, imports } = extractFontsFromCSS(css, url);
+
+    const nestedFonts = await Promise.all(imports.map(i => fetchAndParseCSS(i, depth + 1, fetchedUrls)));
+    return [...fonts, ...nestedFonts.flat()];
   } catch {
-    return '';
+    return [];
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const { url } = await request.json();
+    if (!url) return NextResponse.json({ error: 'URL is required' }, { status: 400 });
 
-    if (!url) {
-      return NextResponse.json({ error: 'URL is required' }, { status: 400 });
-    }
-
-    // Validate URL
     let targetUrl: URL;
     try {
       targetUrl = new URL(url);
@@ -126,69 +133,59 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
     }
 
-    // Fetch the main page
     const response = await fetch(targetUrl.href, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8'
       }
     });
 
     if (!response.ok) {
-      return NextResponse.json(
-        { error: `Failed to fetch website: ${response.status}` },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: `Failed to fetch website: ${response.status}` }, { status: 400 });
     }
 
     const html = await response.text();
     const allFonts: FontInfo[] = [];
+    const fetchedCssUrls = new Set<string>();
 
-    // Extract inline styles
+    // Inline styles
     const inlineStyleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi;
     let styleMatch;
     while ((styleMatch = inlineStyleRegex.exec(html)) !== null) {
-      const fonts = extractFontsFromCSS(styleMatch[1], targetUrl.href);
+      const { fonts, imports } = extractFontsFromCSS(styleMatch[1], targetUrl.href);
       allFonts.push(...fonts);
+      // Follow imports from inline styles
+      const importFonts = await Promise.all(imports.map(i => fetchAndParseCSS(i, 0, fetchedCssUrls)));
+      allFonts.push(...importFonts.flat());
     }
 
-    // Extract linked stylesheets
+    // Linked stylesheets
     const linkRegex = /<link[^>]+rel=["']?stylesheet["']?[^>]*>/gi;
     const hrefRegex = /href=["']([^"']+)["']/i;
     let linkMatch;
+    const initialCssUrls: string[] = [];
 
-    const cssUrls: string[] = [];
     while ((linkMatch = linkRegex.exec(html)) !== null) {
       const hrefMatch = linkMatch[0].match(hrefRegex);
       if (hrefMatch) {
-        const cssUrl = resolveUrl(targetUrl.href, hrefMatch[1]);
-        cssUrls.push(cssUrl);
+        initialCssUrls.push(resolveUrl(targetUrl.href, hrefMatch[1]));
       }
     }
 
-    // Also check for link tags with href before rel
-    const linkRegex2 = /<link[^>]+href=["']([^"']+\.css[^"']*)["'][^>]*>/gi;
-    while ((linkMatch = linkRegex2.exec(html)) !== null) {
-      const cssUrl = resolveUrl(targetUrl.href, linkMatch[1]);
-      if (!cssUrls.includes(cssUrl)) {
-        cssUrls.push(cssUrl);
+    // Process all linked CSS files (recursively handling @import)
+    const linkedFonts = await Promise.all(initialCssUrls.map(u => fetchAndParseCSS(u, 0, fetchedCssUrls)));
+    allFonts.push(...linkedFonts.flat());
+
+    // Deduplicate fonts by URL (keeping the first occurrence)
+    const uniqueFontsMap = new Map<string, FontInfo>();
+    for (const font of allFonts) {
+      if (!uniqueFontsMap.has(font.url)) {
+        uniqueFontsMap.set(font.url, font);
       }
     }
+    const uniqueFonts = Array.from(uniqueFontsMap.values());
 
-    // Fetch all CSS files in parallel
-    const cssContents = await Promise.all(cssUrls.map(fetchCSS));
-
-    for (let i = 0; i < cssContents.length; i++) {
-      const fonts = extractFontsFromCSS(cssContents[i], cssUrls[i]);
-      allFonts.push(...fonts);
-    }
-
-    // Deduplicate fonts by URL
-    const uniqueFonts = allFonts.filter((font, index, self) =>
-      index === self.findIndex(f => f.url === font.url)
-    );
-
-    return NextResponse.json({ 
+    return NextResponse.json({
       fonts: uniqueFonts,
       totalFound: uniqueFonts.length,
       sourceUrl: targetUrl.href
@@ -196,9 +193,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Font extraction error:', error);
-    return NextResponse.json(
-      { error: 'Failed to extract fonts' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to extract fonts' }, { status: 500 });
   }
 }

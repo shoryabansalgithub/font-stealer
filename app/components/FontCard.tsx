@@ -13,8 +13,9 @@ export default function FontCard({ font, index }: FontCardProps) {
     const [downloading, setDownloading] = useState(false);
     const [fontLoaded, setFontLoaded] = useState(false);
 
-    // Create proxied URL
-    const proxyUrl = `/api/font?url=${encodeURIComponent(font.url)}`;
+    // Only proxy external URLs, keep data URLs as is
+    const isDataUrl = font.url.startsWith('data:');
+    const displayUrl = isDataUrl ? font.url : `/api/font?url=${encodeURIComponent(font.url)}`;
 
     useEffect(() => {
         const fontId = `font-preview-${index}`;
@@ -26,26 +27,34 @@ export default function FontCard({ font, index }: FontCardProps) {
         style.textContent = `
       @font-face {
         font-family: 'PreviewFont${index}';
-        src: url('${proxyUrl}');
+        src: url('${displayUrl}');
         font-weight: ${font.weight || 'normal'};
         font-style: ${font.style || 'normal'};
       }
     `;
         document.head.appendChild(style);
 
-        setTimeout(() => setFontLoaded(true), 800);
+        // Faster timeout for data URLs as they don't need network fetch
+        setTimeout(() => setFontLoaded(true), isDataUrl ? 100 : 800);
 
         return () => {
             const el = document.getElementById(fontId);
             if (el) el.remove();
         };
-    }, [font, index, proxyUrl]);
+    }, [font, index, displayUrl, isDataUrl]);
 
     const handleDownload = async () => {
         setDownloading(true);
         try {
-            const response = await fetch(proxyUrl);
-            const blob = await response.blob();
+            let blob: Blob;
+            if (isDataUrl) {
+                const response = await fetch(font.url);
+                blob = await response.blob();
+            } else {
+                const response = await fetch(displayUrl);
+                blob = await response.blob();
+            }
+
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
