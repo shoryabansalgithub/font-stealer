@@ -38,6 +38,9 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+# build script progress
+scripts/progress.json
 next-env.d.ts
 
 # agents

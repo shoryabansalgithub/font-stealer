@@ -6,4 +6,15 @@ export interface FontInfo {
     weight?: string;
     style?: string;
     referer?: string;
+    alternatives?: FontAlternative[];
+}
+
+export interface FontAlternative {
+    family: string;
+    category?: string;
+    variants?: string[];
+    downloadUrl: string;
+    previewUrl?: string;
+    reason?: string;
+    similarity?: number;
 }

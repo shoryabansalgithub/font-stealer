@@ -15,6 +15,7 @@ Always verify that you have proper licensing before using downloaded fonts in yo
 - 🔍 Extract fonts from any website URL
 - 👀 Live preview of each font with customizable text
 - 📥 One-click download support for WOFF, WOFF2, TTF, and OTF formats
+- ✅ **Find legal alternatives** - Get free Google Fonts suggestions similar to extracted fonts
 - ⚡ Fast extraction with modern Next.js architecture
 - 🎨 Beautiful UI with smooth animations
 
@@ -64,6 +65,7 @@ bun dev
 3. All discovered fonts are displayed with their family names, weights, and styles
 4. Click on any font to preview it with custom text
 5. Download fonts individually with the download button
+6. **NEW:** Click "Find Legal Alternatives" to discover free Google Fonts with similar styling - perfect for avoiding licensing issues!
 
 ## Tech Stack
 
@@ -77,6 +79,7 @@ bun dev
 
 - `/api/extract` - POST endpoint to extract fonts from a given URL
 - `/api/font` - GET endpoint to fetch and serve font files
+- `/api/match` - POST endpoint to find similar free/open-source font alternatives from Google Fonts
 
 ## Supported Font Formats
 
