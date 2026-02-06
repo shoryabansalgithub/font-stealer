@@ -145,13 +145,32 @@ export default function Home() {
         </section>
 
         {/* Footer */}
-        <footer className="py-8 text-center text-sm text-gray-400 space-y-2">
-          <p>Supports WOFF, WOFF2, TTF, and OTF formats</p>
-          <p className="max-w-2xl mx-auto px-6">
-            This tool does not grant licenses or permissions for font usage.
-            Users are solely responsible for ensuring they have the legal right to download and use any font files accessed through this tool.
-            The service is provided for inspection and development purposes only.
-          </p>
+        <footer className="py-16 border-t border-gray-200 mt-20">
+          <div className="max-w-5xl mx-auto px-6">
+            <p className="text-base font-medium text-gray-400 uppercase tracking-wider mb-6">Supports WOFF, WOFF2, TTF, and OTF formats</p>
+            
+            <div className="space-y-5 text-lg text-gray-500 leading-relaxed">
+              <h3 className="text-xl font-bold text-gray-700 uppercase tracking-wide">Disclaimer</h3>
+              
+              <p className="text-lg">
+                Font Stealer is a developer utility designed to help designers and developers inspect and access publicly available font assets for testing and research purposes.
+              </p>
+
+              <p className="text-lg">
+                <span className="font-semibold text-gray-700">Respect Licenses:</span> Many web fonts are licensed software. Downloading a font does not grant you a license to use it. You are responsible for ensuring you have the appropriate rights or licenses for any font you download and use.
+              </p>
+
+              <p className="text-lg">
+                <span className="font-semibold text-gray-700">No Circumvention:</span> This tool only detects files that are already sent to your browser for rendering. It does not bypass DRM, decrypt secured files, or access private directories.
+              </p>
+
+              <p className="text-lg">
+                <span className="font-semibold text-gray-700">User Responsibility:</span> The author of this tool assumes no liability for the misuse of downloaded assets. Please support type foundries by purchasing proper licenses for your projects.
+              </p>
+            </div>
+
+            <p className="mt-10 text-base text-gray-400">&copy; {new Date().getFullYear()} Font Stealer. Built for the design community.</p>
+          </div>
         </footer>
       </div>
     </main>

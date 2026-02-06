@@ -15,6 +15,8 @@ export default function FontCard({ font, index }: FontCardProps) {
     const [showAlternatives, setShowAlternatives] = useState(false);
     const [alternatives, setAlternatives] = useState<FontAlternative[]>([]);
     const [loadingAlternatives, setLoadingAlternatives] = useState(false);
+    const [showDisclaimer, setShowDisclaimer] = useState(false);
+    const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
 
     // Only proxy external URLs, keep data URLs as is
     const isDataUrl = font.url.startsWith('data:');
@@ -48,7 +50,16 @@ export default function FontCard({ font, index }: FontCardProps) {
         };
     }, [font, index, displayUrl, isDataUrl]);
 
+    const handleDownloadClick = () => {
+        if (!disclaimerAccepted) {
+            setShowDisclaimer(true);
+            return;
+        }
+        handleDownload();
+    };
+
     const handleDownload = async () => {
+        setShowDisclaimer(false);
         setDownloading(true);
         try {
             let blob: Blob;
@@ -188,9 +199,35 @@ export default function FontCard({ font, index }: FontCardProps) {
                     </span>
                 </div>
 
+                {/* Download Disclaimer */}
+                <AnimatePresence>
+                    {showDisclaimer && !disclaimerAccepted && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                        >
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl mb-2">
+                                <label className="flex items-start gap-2.5 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={disclaimerAccepted}
+                                        onChange={(e) => setDisclaimerAccepted(e.target.checked)}
+                                        className="mt-0.5 w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 shrink-0"
+                                    />
+                                    <span className="text-xs leading-relaxed text-amber-800">
+                                        This font might not be free to use. Download at your own risk. You can also try the <button onClick={(e) => { e.preventDefault(); findAlternatives(); }} className="font-semibold underline underline-offset-2 hover:text-amber-900">free/legal alternatives</button> below.
+                                    </span>
+                                </label>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
                 {/* Download Button */}
                 <motion.button
-                    onClick={handleDownload}
+                    onClick={handleDownloadClick}
                     disabled={downloading}
                     whileTap={{ scale: 0.97 }}
                     className={`

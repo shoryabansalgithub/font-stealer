@@ -89,8 +89,8 @@ export default function HeroSection() {
                     transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1], delay: 0.2 }}
                     className="mt-16 text-lg md:text-xl text-gray-500 max-w-2xl mx-auto leading-relaxed"
                 >
-                    Enter any website URL and instantly discover all the fonts it uses.
-                    Preview them live and download with a single click.
+                    Enter any website URL to instantly discover every font it uses.
+                    Preview them live, download originals, and find free alternatives.
                 </motion.p>
             </div>
         </section>
