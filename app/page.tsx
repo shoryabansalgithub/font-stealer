@@ -145,8 +145,13 @@ export default function Home() {
         </section>
 
         {/* Footer */}
-        <footer className="py-8 text-center text-sm text-gray-400">
+        <footer className="py-8 text-center text-sm text-gray-400 space-y-2">
           <p>Supports WOFF, WOFF2, TTF, and OTF formats</p>
+          <p className="max-w-2xl mx-auto px-6">
+            This tool does not grant licenses or permissions for font usage.
+            Users are solely responsible for ensuring they have the legal right to download and use any font files accessed through this tool.
+            The service is provided for inspection and development purposes only.
+          </p>
         </footer>
       </div>
     </main>

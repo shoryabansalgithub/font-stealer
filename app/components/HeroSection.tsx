@@ -63,7 +63,7 @@ export default function HeroSection() {
                                 className="block text-6xl md:text-8xl font-semibold text-gray-900 tracking-tight leading-none"
                                 style={{ fontFamily: currentFont.family }}
                             >
-                                Steal Any Font
+                                Download Any Font
                             </motion.span>
                         </AnimatePresence>
 
