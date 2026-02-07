@@ -12,7 +12,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [searched, setSearched] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [previewText, setPreviewText] = useState('');
 
   const handleSearch = async (targetUrl: string) => {
@@ -71,23 +70,6 @@ export default function Home() {
       <div className="relative z-10">
         {/* Hero Section */}
         <HeroSection />
-
-        {/* $FONT Token */}
-        <div className="flex justify-center mt-6">
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText('8EXmYCFu1DYrg6R4uJvvsxWRd26EiF3Ej3aaZ7bnBAGS');
-              setCopied(true);
-              setTimeout(() => setCopied(false), 2000);
-            }}
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors duration-150 text-base font-medium text-gray-700 hover:text-gray-900 cursor-pointer"
-          >
-            <span className="font-bold text-lg">$FONT</span>
-            <span className="text-gray-400">CA:</span>
-            <span className="font-mono text-sm text-gray-500">8EXmYCFu1DYrg6R4uJvvsxWRd26EiF3Ej3aaZ7bnBAGS</span>
-            <span className="text-gray-400 text-sm ml-1">{copied ? '✓ Copied!' : '📋'}</span>
-          </button>
-        </div>
 
         {/* Search Input */}
         <div className="mt-10">
