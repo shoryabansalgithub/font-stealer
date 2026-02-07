@@ -13,6 +13,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const [searched, setSearched] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [previewText, setPreviewText] = useState('');
 
   const handleSearch = async (targetUrl: string) => {
     setLoading(true);
@@ -89,7 +90,7 @@ export default function Home() {
         </div>
 
         {/* Search Input */}
-        <div className="mt-8">
+        <div className="mt-10">
           <SearchInput onSearch={handleSearch} loading={loading} />
         </div>
 
@@ -127,6 +128,31 @@ export default function Home() {
             )}
           </AnimatePresence>
 
+          {/* Custom Preview Text */}
+          {fonts.length > 0 && (
+            <div className="mb-6">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={previewText}
+                  onChange={(e) => setPreviewText(e.target.value)}
+                  placeholder="Type custom preview text…"
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-150"
+                />
+                {previewText && (
+                  <button
+                    onClick={() => setPreviewText('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Font Grid */}
           <AnimatePresence mode="wait">
             {fonts.length > 0 && (
@@ -136,7 +162,7 @@ export default function Home() {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <FontGrid fonts={fonts} />
+                <FontGrid fonts={fonts} previewText={previewText} />
               </motion.div>
             )}
           </AnimatePresence>

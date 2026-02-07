@@ -7,9 +7,10 @@ import { FontInfo, FontAlternative } from '../types';
 interface FontCardProps {
     font: FontInfo;
     index: number;
+    previewText?: string;
 }
 
-export default function FontCard({ font, index }: FontCardProps) {
+export default function FontCard({ font, index, previewText }: FontCardProps) {
     const [downloading, setDownloading] = useState(false);
     const [fontLoaded, setFontLoaded] = useState(false);
     const [showAlternatives, setShowAlternatives] = useState(false);
@@ -132,6 +133,8 @@ export default function FontCard({ font, index }: FontCardProps) {
         return styles[format.toUpperCase()] || 'bg-gray-100 text-gray-600';
     };
 
+
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -170,7 +173,7 @@ export default function FontCard({ font, index }: FontCardProps) {
                                 fontWeight: font.weight || 'normal'
                             }}
                         >
-                            The quick brown fox jumps over the lazy dog
+                            {previewText || 'The quick brown fox jumps over the lazy dog'}
                         </p>
                     ) : (
                         <div className="flex items-center gap-2 text-gray-400">
@@ -217,7 +220,7 @@ export default function FontCard({ font, index }: FontCardProps) {
                                         className="mt-0.5 w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 shrink-0"
                                     />
                                     <span className="text-xs leading-relaxed text-amber-800">
-                                        This font might not be free to use. Download at your own risk. You can also try the <button onClick={(e) => { e.preventDefault(); findAlternatives(); }} className="font-semibold underline underline-offset-2 hover:text-amber-900">free/legal alternatives</button> below.
+                                        This font might not be free to use. Download at your own risk. You can also try the <button onClick={(e) => { e.preventDefault(); findAlternatives(); }} className="font-semibold underline underline-offset-2 hover:text-amber-900">free alternatives</button> below.
                                     </span>
                                 </label>
                             </div>
@@ -225,39 +228,17 @@ export default function FontCard({ font, index }: FontCardProps) {
                     )}
                 </AnimatePresence>
 
-                {/* Download Button */}
+                {/* Download Button (Disabled) */}
                 <motion.button
-                    onClick={handleDownloadClick}
-                    disabled={downloading}
-                    whileTap={{ scale: 0.97 }}
-                    className={`
-            w-full py-3 px-4
-            text-sm font-medium
-            rounded-xl
-            transition-all duration-150 ease
-            focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2
-            ${downloading
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-gray-900 text-white hover:bg-gray-800 active:bg-gray-950'
-                        }
-          `}
+                    disabled={true}
+                    className="w-full py-3 px-4 text-sm font-medium rounded-xl bg-gray-100 text-gray-400 cursor-not-allowed transition-all duration-150"
                 >
-                    {downloading ? (
-                        <span className="flex items-center justify-center gap-2">
-                            <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                            </svg>
-                            Downloading…
-                        </span>
-                    ) : (
-                        <span className="flex items-center justify-center gap-2">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                            </svg>
-                            Download
-                        </span>
-                    )}
+                    <span className="flex items-center justify-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Download Disabled
+                    </span>
                 </motion.button>
 
                 {/* Find Alternatives Button */}
@@ -290,7 +271,7 @@ export default function FontCard({ font, index }: FontCardProps) {
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                             </svg>
-                            {alternatives.length > 0 ? (showAlternatives ? 'Hide' : 'Show') + ' Legal Alternatives' : 'Find Legal Alternatives'}
+                            {alternatives.length > 0 ? (showAlternatives ? 'Hide' : 'Show') + ' Free Alternatives' : 'Find Free Alternatives'}
                         </span>
                     )}
                 </motion.button>
@@ -309,7 +290,7 @@ export default function FontCard({ font, index }: FontCardProps) {
                                 <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                                Free & Legal Alternatives
+                                Free Alternatives
                             </h4>
                             <div className="space-y-2">
                                 {alternatives.map((alt, i) => (

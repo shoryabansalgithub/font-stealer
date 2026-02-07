@@ -143,6 +143,63 @@ function findNameOverride(family: string): NameOverrideAlt[] | null {
 }
 
 // ============================================================================
+// Clean font family names — strip hashes, IDs, build artifacts
+// e.g. "Inter-280267e3536fdc11" → "Inter", "Poppins-abc123" → "Poppins"
+// ============================================================================
+
+function cleanFamilyName(family: string): string {
+  let cleaned = family;
+
+  // Strip trailing hex hash (common in Next.js / webpack builds)
+  // e.g. "Inter-280267e3536fdc11" → "Inter"
+  cleaned = cleaned.replace(/-[0-9a-f]{6,}$/i, '');
+
+  // Strip trailing random IDs like "__abc123_def456"
+  cleaned = cleaned.replace(/__[a-zA-Z0-9_]+$/, '');
+
+  // Strip trailing numbers-only suffix e.g. "Roboto-12345"
+  cleaned = cleaned.replace(/-\d{4,}$/, '');
+
+  return cleaned.trim();
+}
+
+/**
+ * Search the database for a font by name, trying progressively fuzzier matches:
+ * 1. Exact match on original family name
+ * 2. Exact match on cleaned name (hash stripped)
+ * 3. Case-insensitive startsWith on database entries
+ */
+function findInDatabase(
+  family: string,
+  database: FontFeatureEntry[],
+): FontFeatureEntry | null {
+  const lower = family.toLowerCase().trim();
+  const cleanedLower = cleanFamilyName(family).toLowerCase().trim();
+
+  // 1. Exact match
+  const exact = database.find(e => e.family.toLowerCase().trim() === lower);
+  if (exact) return exact;
+
+  // 2. Match after stripping hash/ID suffixes
+  if (cleanedLower !== lower) {
+    const cleaned = database.find(e => e.family.toLowerCase().trim() === cleanedLower);
+    if (cleaned) return cleaned;
+  }
+
+  // 3. The cleaned name starts with a known font family (or vice versa)
+  // Only if cleaned name is at least 3 chars to avoid false positives
+  if (cleanedLower.length >= 3) {
+    const startsWith = database.find(e => {
+      const dbLower = e.family.toLowerCase().trim();
+      return dbLower.startsWith(cleanedLower) || cleanedLower.startsWith(dbLower);
+    });
+    if (startsWith) return startsWith;
+  }
+
+  return null;
+}
+
+// ============================================================================
 // Main API handler
 // ============================================================================
 
@@ -154,23 +211,92 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Font family is required' }, { status: 400 });
     }
 
+    // 0. Check if the font itself is available on Google Fonts
+    //    Use smart matching that strips hashes/IDs from font names
+    const database = await getDatabase();
+    const cleanedFamily = cleanFamilyName(family);
+    const exactMatch = findInDatabase(family, database);
+
+    // Use the cleaned name for name-override lookups and exclude logic
+    const lookupName = exactMatch ? exactMatch.family : cleanedFamily;
+
     // 1. Check name overrides first (for well-known commercial fonts)
-    const nameMatch = findNameOverride(family);
+    const nameMatch = findNameOverride(lookupName);
     if (nameMatch) {
+      const overrideAlts = nameMatch.map(alt => ({
+        family: alt.family,
+        similarity: 95,
+        reason: alt.reason,
+        downloadUrl: `https://fonts.google.com/specimen/${alt.family.replace(/ /g, '+')}`,
+      }));
+
+      // If the font itself is on Google Fonts, prepend it as a 100% match
+      if (exactMatch) {
+        overrideAlts.unshift({
+          family: exactMatch.family,
+          similarity: 100,
+          reason: 'This exact font is available free on Google Fonts!',
+          downloadUrl: `https://fonts.google.com/specimen/${exactMatch.family.replace(/ /g, '+')}`,
+        });
+      }
+
       return NextResponse.json({
         original: { family, weight, style },
         method: 'name-override',
-        alternatives: nameMatch.map(alt => ({
-          family: alt.family,
-          similarity: 95,
-          reason: alt.reason,
-          downloadUrl: `https://fonts.google.com/specimen/${alt.family.replace(/ /g, '+')}`,
-        })),
+        alternatives: overrideAlts,
+      });
+    }
+
+    // If exact match found in Google Fonts, return it first along with similar fonts
+    if (exactMatch) {
+      // Still try feature matching to find similar fonts too
+      let similarAlts: Array<{ family: string; category?: string; similarity: number; reason: string; downloadUrl: string }> = [];
+
+      if (url) {
+        try {
+          const isDataUrl = url.startsWith('data:');
+          const fontUrl = isDataUrl
+            ? url
+            : `${request.nextUrl.origin}/api/font?url=${encodeURIComponent(url)}&referer=${encodeURIComponent(referer || '')}`;
+
+          const fontResponse = await fetch(fontUrl);
+          if (fontResponse.ok) {
+            const buffer = await fontResponse.arrayBuffer();
+            const queryFeatures = await extractFeaturesFromBuffer(buffer);
+            if (queryFeatures) {
+              // Exclude the matched font from similar results
+              const matches = findSimilar(queryFeatures, database, 4, exactMatch.family);
+              similarAlts = matches.map(m => ({
+                family: m.family,
+                category: m.category,
+                similarity: m.similarity,
+                reason: `${m.similarity}% visual match`,
+                downloadUrl: `https://fonts.google.com/specimen/${m.family.replace(/ /g, '+')}`,
+              }));
+            }
+          }
+        } catch (error) {
+          console.error('Feature matching for exact-match font failed:', error);
+        }
+      }
+
+      return NextResponse.json({
+        original: { family, weight, style },
+        method: 'exact-match',
+        alternatives: [
+          {
+            family: exactMatch.family,
+            category: exactMatch.category,
+            similarity: 100,
+            reason: 'This exact font is available free on Google Fonts!',
+            downloadUrl: `https://fonts.google.com/specimen/${exactMatch.family.replace(/ /g, '+')}`,
+          },
+          ...similarAlts,
+        ],
       });
     }
 
     // 2. Feature-vector similarity matching
-    const database = await getDatabase();
 
     if (database.length > 0 && url) {
       try {
@@ -185,7 +311,42 @@ export async function POST(request: NextRequest) {
           const queryFeatures = await extractFeaturesFromBuffer(buffer);
 
           if (queryFeatures) {
-            const matches = findSimilar(queryFeatures, database, 5, family);
+            // Use cleaned name for exclude to avoid false non-matches
+            const matches = findSimilar(queryFeatures, database, 6, cleanedFamily);
+
+            // Check if the top match IS the same font (name matches after cleaning)
+            // If so, promote it to 100% and separate it
+            const topMatch = matches[0];
+            const isTopMatchSameFont = topMatch &&
+              topMatch.family.toLowerCase().trim() === cleanedFamily.toLowerCase().trim();
+
+            let alternatives;
+            if (isTopMatchSameFont) {
+              alternatives = [
+                {
+                  family: topMatch.family,
+                  category: topMatch.category,
+                  similarity: 100,
+                  reason: 'This exact font is available free on Google Fonts!',
+                  downloadUrl: `https://fonts.google.com/specimen/${topMatch.family.replace(/ /g, '+')}`,
+                },
+                ...matches.slice(1, 5).map(m => ({
+                  family: m.family,
+                  category: m.category,
+                  similarity: m.similarity,
+                  reason: `${m.similarity}% visual match`,
+                  downloadUrl: `https://fonts.google.com/specimen/${m.family.replace(/ /g, '+')}`,
+                })),
+              ];
+            } else {
+              alternatives = matches.slice(0, 5).map(m => ({
+                family: m.family,
+                category: m.category,
+                similarity: m.similarity,
+                reason: `${m.similarity}% visual match`,
+                downloadUrl: `https://fonts.google.com/specimen/${m.family.replace(/ /g, '+')}`,
+              }));
+            }
 
             // Debug: include extracted features
             const featureDebug: Record<string, number> = {};
@@ -197,13 +358,7 @@ export async function POST(request: NextRequest) {
               original: { family, weight, style },
               method: 'feature-similarity',
               features: featureDebug,
-              alternatives: matches.map(m => ({
-                family: m.family,
-                category: m.category,
-                similarity: m.similarity,
-                reason: `${m.similarity}% visual match`,
-                downloadUrl: `https://fonts.google.com/specimen/${m.family.replace(/ /g, '+')}`,
-              })),
+              alternatives,
             });
           }
         }
@@ -223,7 +378,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Last resort: search database by category from name patterns
-    const lower = family.toLowerCase();
+    const lower = cleanedFamily.toLowerCase();
     let categoryFilter: string | null = null;
     if (/mono|code|courier|consolas|menlo|terminal/i.test(lower)) categoryFilter = 'monospace';
     else if (/serif/i.test(lower) && !/sans/i.test(lower)) categoryFilter = 'serif';

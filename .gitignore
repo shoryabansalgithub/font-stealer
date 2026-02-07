@@ -47,3 +47,6 @@ next-env.d.ts
 .agent/
 .agents/
 .gemini/
+
+.vercel
+.env*.local
