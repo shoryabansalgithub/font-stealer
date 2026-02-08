@@ -30,15 +30,6 @@ export default function HeroSection() {
 
     return (
         <section className="relative pt-32 pb-16 px-6">
-            {/* Legal Notice Banner */}
-            <div className="max-w-3xl mx-auto mb-8">
-                <div className="px-5 py-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
-                    <p className="text-sm text-amber-800">
-                        <span className="font-semibold">Note:</span> Font downloading is currently disabled due to legal considerations. You can still analyze any website&apos;s fonts and discover free Google Font alternatives.
-                    </p>
-                </div>
-            </div>
-
             <div className="relative max-w-4xl mx-auto text-center">
                 {/* Eyebrow */}
                 <motion.p
@@ -72,7 +63,7 @@ export default function HeroSection() {
                                 className="block text-6xl md:text-8xl font-semibold text-gray-900 tracking-tight leading-none"
                                 style={{ fontFamily: currentFont.family }}
                             >
-                                Download Any Font
+                                Analyze Any Font
                             </motion.span>
                         </AnimatePresence>
 

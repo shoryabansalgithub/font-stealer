@@ -11,13 +11,10 @@ interface FontCardProps {
 }
 
 export default function FontCard({ font, index, previewText }: FontCardProps) {
-    const [downloading, setDownloading] = useState(false);
     const [fontLoaded, setFontLoaded] = useState(false);
     const [showAlternatives, setShowAlternatives] = useState(false);
     const [alternatives, setAlternatives] = useState<FontAlternative[]>([]);
     const [loadingAlternatives, setLoadingAlternatives] = useState(false);
-    const [showDisclaimer, setShowDisclaimer] = useState(false);
-    const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
 
     // Only proxy external URLs, keep data URLs as is
     const isDataUrl = font.url.startsWith('data:');
@@ -50,43 +47,6 @@ export default function FontCard({ font, index, previewText }: FontCardProps) {
             if (el) el.remove();
         };
     }, [font, index, displayUrl, isDataUrl]);
-
-    const handleDownloadClick = () => {
-        if (!disclaimerAccepted) {
-            setShowDisclaimer(true);
-            return;
-        }
-        handleDownload();
-    };
-
-    const handleDownload = async () => {
-        setShowDisclaimer(false);
-        setDownloading(true);
-        try {
-            let blob: Blob;
-            if (isDataUrl) {
-                const response = await fetch(font.url);
-                blob = await response.blob();
-            } else {
-                const response = await fetch(displayUrl);
-                blob = await response.blob();
-            }
-
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = font.name;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-        } catch (error) {
-            console.error('Download failed:', error);
-            window.open(font.url, '_blank');
-        } finally {
-            setDownloading(false);
-        }
-    };
 
     const findAlternatives = async () => {
         if (alternatives.length > 0) {
@@ -202,44 +162,6 @@ export default function FontCard({ font, index, previewText }: FontCardProps) {
                     </span>
                 </div>
 
-                {/* Download Disclaimer */}
-                <AnimatePresence>
-                    {showDisclaimer && !disclaimerAccepted && (
-                        <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="overflow-hidden"
-                        >
-                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl mb-2">
-                                <label className="flex items-start gap-2.5 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={disclaimerAccepted}
-                                        onChange={(e) => setDisclaimerAccepted(e.target.checked)}
-                                        className="mt-0.5 w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 shrink-0"
-                                    />
-                                    <span className="text-xs leading-relaxed text-amber-800">
-                                        This font might not be free to use. Download at your own risk. You can also try the <button onClick={(e) => { e.preventDefault(); findAlternatives(); }} className="font-semibold underline underline-offset-2 hover:text-amber-900">free alternatives</button> below.
-                                    </span>
-                                </label>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
-                {/* Download Button (Disabled) */}
-                <motion.button
-                    disabled={true}
-                    className="w-full py-3 px-4 text-sm font-medium rounded-xl bg-gray-100 text-gray-400 cursor-not-allowed transition-all duration-150"
-                >
-                    <span className="flex items-center justify-center gap-2">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
-                        Download Disabled
-                    </span>
-                </motion.button>
 
                 {/* Find Alternatives Button */}
                 <motion.button

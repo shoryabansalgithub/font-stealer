@@ -22,24 +22,24 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Font Stealer - Extract Fonts from Any Website",
-  description: "Discover and download fonts from any website. Just enter a URL and get instant access to all the fonts used.",
+  title: "Analyze Any Font - Extract Fonts from Any Website",
+  description: "Discover and analyze fonts from any website. Just enter a URL and get instant access to all the fonts used.",
   openGraph: {
-    title: "Font Stealer",
-    description: "Extract and download fonts from any website instantly.",
+    title: "Analyze Any Font",
+    description: "Extract and analyze fonts from any website instantly.",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Font Stealer OG Image",
+        alt: "Analyze Any Font OG Image",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Font Stealer",
-    description: "Extract and download fonts from any website instantly.",
+    title: "Analyze Any Font",
+    description: "Extract and analyze fonts from any website instantly.",
     images: ["/og-image.png"],
   },
   icons: {
