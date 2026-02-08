@@ -179,23 +179,23 @@ export default function Home() {
               <h3 className="text-xl font-bold text-gray-700 uppercase tracking-wide">Disclaimer</h3>
               
               <p className="text-lg">
-                Font Stealer is a developer utility designed to help designers and developers inspect and access publicly available font assets for testing and research purposes.
+                Analyze Any Font is a developer utility designed to help designers and developers inspect and identify typography used on the web for testing and research purposes.
               </p>
 
               <p className="text-lg">
-                <span className="font-semibold text-gray-700">Respect Licenses:</span> Many web fonts are licensed software. Downloading a font does not grant you a license to use it. You are responsible for ensuring you have the appropriate rights or licenses for any font you download and use.
+                <span className="font-semibold text-gray-700">Respect Licenses:</span> Many web fonts are licensed software. Identifying a font does not grant you a license to use it. You are responsible for ensuring you have the appropriate rights or licenses for any font you reuse.
               </p>
 
               <p className="text-lg">
-                <span className="font-semibold text-gray-700">No Circumvention:</span> This tool only detects files that are already sent to your browser for rendering. It does not bypass DRM, decrypt secured files, or access private directories.
+                <span className="font-semibold text-gray-700">No Circumvention:</span> This tool only detects styles that are already sent to your browser for rendering. It does not bypass DRM, decrypt secured files, or access private directories.
               </p>
 
               <p className="text-lg">
-                <span className="font-semibold text-gray-700">User Responsibility:</span> The author of this tool assumes no liability for the misuse of downloaded assets. Please support type foundries by purchasing proper licenses for your projects.
+                <span className="font-semibold text-gray-700">User Responsibility:</span> The author of this tool assumes no liability for the misuse of information provided. Please support type foundries by purchasing proper licenses for your projects.
               </p>
             </div>
 
-            <p className="mt-10 text-base text-gray-400">&copy; {new Date().getFullYear()} Font Stealer. Built for the design community.</p>
+            <p className="mt-10 text-base text-gray-400">&copy; {new Date().getFullYear()} Analyze Any Font. Built for the design community.</p>
           </div>
         </footer>
       </div>
